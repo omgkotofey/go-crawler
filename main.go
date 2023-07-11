@@ -5,9 +5,16 @@ import (
 	"experiments/app"
 	"fmt"
 	"net/url"
+	"os"
 	"strconv"
 	"time"
 )
+
+// todo: Make tests
+// todo: Gorutines pool
+// todo: Depth 2 or more
+// todo: Summary stats
+// todo: Do not fetch same url twice
 
 func main() {
 	start := time.Now()
@@ -15,8 +22,7 @@ func main() {
 		fmt.Printf("Execution Time: %.2f sec\n", time.Since(start).Seconds())
 	}()
 
-	// args := os.Args
-	args := []string{"", "https://go.dev/", "1"}
+	args := os.Args
 	if len(args[1:]) < 2 {
 		panic(errors.New("error: invalid input"))
 	}

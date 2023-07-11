@@ -26,9 +26,6 @@ type Crawler struct {
 
 func (c *Crawler) Crawl(urlToCrawl *url.URL, depth int, resChan chan string, errChan chan error) {
 
-	// todo: Make tests
-	// todo: Gorutines pool
-
 	c.fetchedUrls = urlMap{}
 
 	var wg sync.WaitGroup
