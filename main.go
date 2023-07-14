@@ -5,6 +5,7 @@ import (
 	"experiments/app"
 	"fmt"
 	"net/url"
+	"os"
 	"strconv"
 	"time"
 )
@@ -26,9 +27,7 @@ func main() {
 		}
 	}()
 
-	args := []string{"hey", "https://gorm.io/", "2"}
-
-	// args := os.Args
+	args := os.Args
 	if len(args[1:]) < 2 {
 		panic(errors.New("error: invalid input"))
 	}
