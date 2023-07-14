@@ -6,27 +6,35 @@ import (
 	"sync"
 )
 
-type urlMap map[string]string
+type urlMap struct {
+	urls   map[string]string
+	mutext sync.RWMutex
+}
 
-func (m urlMap) exists(url string) bool {
-	_, found := m[url]
+func (m *urlMap) exists(url string) bool {
+	m.mutext.Lock()
+	_, found := m.urls[url]
+	m.mutext.Unlock()
 
 	return found
 }
 
-func (m urlMap) add(url string) {
-	m[url] = url
+func (m *urlMap) add(url string) {
+	m.mutext.RLock()
+	m.urls[url] = url
+	m.mutext.RUnlock()
 }
 
 type Crawler struct {
 	Fetcher
 	UrlParser
-	fetchedUrls urlMap
+	fetchedUrls *urlMap
 }
 
 func (c *Crawler) Crawl(urlToCrawl *url.URL, depth int, resChan chan string, errChan chan error) {
 
-	c.fetchedUrls = urlMap{}
+	fetchedUrls := urlMap{urls: map[string]string{}}
+	c.fetchedUrls = &fetchedUrls
 
 	var wg sync.WaitGroup
 	wg.Add(1)
