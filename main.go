@@ -5,24 +5,30 @@ import (
 	"experiments/app"
 	"fmt"
 	"net/url"
-	"os"
 	"strconv"
 	"time"
 )
 
 // todo: Make tests
 // todo: Gorutines pool
-// todo: Depth 2 or more
-// todo: Summary stats
 // todo: Do not fetch same url twice
 
 func main() {
 	start := time.Now()
+	fetchedUrls := 0
+	errorsCount := 0
 	defer func() {
 		fmt.Printf("Execution Time: %.2f sec\n", time.Since(start).Seconds())
+		fmt.Printf("Fetched %v urls\n", fetchedUrls)
+		if errorsCount > 0 {
+			fmt.Printf("Got %v errors\n", errorsCount)
+
+		}
 	}()
 
-	args := os.Args
+	args := []string{"hey", "https://gorm.io/", "2"}
+
+	// args := os.Args
 	if len(args[1:]) < 2 {
 		panic(errors.New("error: invalid input"))
 	}
@@ -53,11 +59,13 @@ func main() {
 		select {
 		case result, ok := <-resChan:
 			fmt.Println(result)
+			fetchedUrls += 1
 			if !ok {
 				resChan = nil
 			}
 		case err := <-errChan:
 			fmt.Println(err)
+			errorsCount += 1
 		}
 
 		if resChan == nil {

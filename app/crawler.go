@@ -20,9 +20,9 @@ func (m *urlMap) exists(url string) bool {
 }
 
 func (m *urlMap) add(url string) {
-	m.mutext.RLock()
+	m.mutext.Lock()
 	m.urls[url] = url
-	m.mutext.RUnlock()
+	m.mutext.Unlock()
 }
 
 type Crawler struct {
