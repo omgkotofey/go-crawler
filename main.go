@@ -12,7 +12,6 @@ import (
 
 // todo: Make tests
 // todo: Gorutines pool
-// todo: Do not fetch same url twice
 
 func main() {
 	start := time.Now()

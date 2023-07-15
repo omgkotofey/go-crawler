@@ -28,13 +28,13 @@ func (m *urlMap) add(url string) {
 type Crawler struct {
 	Fetcher
 	UrlParser
-	fetchedUrls *urlMap
+	processedUrls *urlMap
 }
 
 func (c *Crawler) Crawl(urlToCrawl *url.URL, depth int, resChan chan string, errChan chan error) {
 
-	fetchedUrls := urlMap{urls: map[string]string{}}
-	c.fetchedUrls = &fetchedUrls
+	processedUrls := urlMap{urls: map[string]string{}}
+	c.processedUrls = &processedUrls
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -50,12 +50,13 @@ func (c *Crawler) crawlUrl(urlToCrawl *url.URL, depth int, resChan chan string, 
 		return
 	}
 
-	if c.fetchedUrls.exists(urlToCrawl.String()) {
+	if c.processedUrls.exists(urlToCrawl.String()) {
 		return
+	} else {
+		c.processedUrls.add(urlToCrawl.String())
 	}
 
 	fetchResult, err := c.Fetcher.Fetch(urlToCrawl)
-	c.fetchedUrls.add(urlToCrawl.String())
 	if err != nil {
 		err = fmt.Errorf("error occurred while fetching %v: %v", urlToCrawl.String(), err)
 		errChan <- err
