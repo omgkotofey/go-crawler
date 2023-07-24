@@ -1,7 +1,8 @@
-package app
+package parser
 
 import (
 	"bytes"
+	"experiments/app/fetcher"
 	"fmt"
 	"net/url"
 	"strings"
@@ -63,23 +64,23 @@ func (t ATag) getHref() (href string, ok bool) {
 }
 
 type ParseResult struct {
-	FetchResult
-	urls []*url.URL
+	fetcher.FetchResult
+	Urls []*url.URL
 }
 
 type UrlParser interface {
-	Parse(data FetchResult) (result ParseResult, err error)
+	Parse(data fetcher.FetchResult) (result ParseResult, err error)
 }
 
 type TokenizerParser struct {
 	Origin Origin
 }
 
-func (p TokenizerParser) Parse(data FetchResult) (result ParseResult, err error) {
-	tokenizer := html.NewTokenizer(bytes.NewReader(data.body))
+func (p TokenizerParser) Parse(data fetcher.FetchResult) (result ParseResult, err error) {
+	tokenizer := html.NewTokenizer(bytes.NewReader(data.Body))
 	result = ParseResult{
 		FetchResult: data,
-		urls:        make([]*url.URL, 0),
+		Urls:        make([]*url.URL, 0),
 	}
 
 	for {
@@ -121,7 +122,7 @@ func (p TokenizerParser) Parse(data FetchResult) (result ParseResult, err error)
 				return result, err
 			}
 
-			result.urls = append(result.urls, parsedUrl)
+			result.Urls = append(result.Urls, parsedUrl)
 		}
 	}
 }

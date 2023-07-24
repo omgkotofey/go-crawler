@@ -2,7 +2,9 @@ package main
 
 import (
 	"errors"
-	"experiments/app"
+	"experiments/app/crawler"
+	"experiments/app/fetcher"
+	"experiments/app/parser"
 	"fmt"
 	"net/url"
 	"os"
@@ -42,10 +44,10 @@ func main() {
 	}
 	resChan := make(chan string)
 	errChan := make(chan error)
-	crawler := app.Crawler{
-		Fetcher: app.HttpFetcher{},
-		UrlParser: app.TokenizerParser{
-			Origin: app.Origin{
+	crawler := crawler.Crawler{
+		Fetcher: fetcher.NewHttpFetcher(),
+		UrlParser: parser.TokenizerParser{
+			Origin: parser.Origin{
 				Base: parsedUrl,
 			},
 		},

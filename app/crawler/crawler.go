@@ -1,6 +1,8 @@
-package app
+package crawler
 
 import (
+	"experiments/app/fetcher"
+	"experiments/app/parser"
 	"fmt"
 	"net/url"
 	"sync"
@@ -26,8 +28,8 @@ func (m *urlMap) add(url string) {
 }
 
 type Crawler struct {
-	Fetcher
-	UrlParser
+	fetcher.Fetcher
+	parser.UrlParser
 	processedUrls *urlMap
 }
 
@@ -70,10 +72,10 @@ func (c *Crawler) crawlUrl(urlToCrawl *url.URL, depth int, resChan chan string, 
 		return
 	}
 
-	wg.Add(len(parseResult.urls))
-	for _, urlToCrawl := range parseResult.urls {
+	wg.Add(len(parseResult.Urls))
+	for _, urlToCrawl := range parseResult.Urls {
 		go c.crawlUrl(urlToCrawl, depth-1, resChan, errChan, wg)
 	}
 
-	resChan <- fmt.Sprintf("fetched %s. response length: %d (%.2f sec)", urlToCrawl, len(parseResult.body), parseResult.spent)
+	resChan <- fmt.Sprintf("fetched %s. response length: %d (%.2f sec)", urlToCrawl, len(parseResult.Body), parseResult.Spent)
 }
