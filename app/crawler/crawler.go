@@ -77,5 +77,5 @@ func (c *Crawler) crawlUrl(urlToCrawl *url.URL, depth int, resChan chan string, 
 		go c.crawlUrl(urlToCrawl, depth-1, resChan, errChan, wg)
 	}
 
-	resChan <- fmt.Sprintf("fetched %s. response length: %d (%.2f sec)", urlToCrawl, len(parseResult.Body), parseResult.Spent)
+	resChan <- fmt.Sprintf("fetched %s. response length: %d (%.2f sec)", urlToCrawl, len(parseResult.Resource.GetBody()), parseResult.Resource.GetSpent())
 }

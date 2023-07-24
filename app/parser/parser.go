@@ -2,7 +2,6 @@ package parser
 
 import (
 	"bytes"
-	"experiments/app/fetcher"
 	"fmt"
 	"net/url"
 	"strings"
@@ -63,24 +62,30 @@ func (t ATag) getHref() (href string, ok bool) {
 	return href, false
 }
 
+type ResourcePresenter interface {
+	GetUrl() *url.URL
+	GetBody() []byte
+	GetSpent() float64
+}
+
 type ParseResult struct {
-	fetcher.FetchResult
-	Urls []*url.URL
+	Resource ResourcePresenter
+	Urls     []*url.URL
 }
 
 type UrlParser interface {
-	Parse(data fetcher.FetchResult) (result ParseResult, err error)
+	Parse(resource ResourcePresenter) (result ParseResult, err error)
 }
 
 type TokenizerParser struct {
 	Origin Origin
 }
 
-func (p TokenizerParser) Parse(data fetcher.FetchResult) (result ParseResult, err error) {
-	tokenizer := html.NewTokenizer(bytes.NewReader(data.Body))
+func (p TokenizerParser) Parse(resource ResourcePresenter) (result ParseResult, err error) {
+	tokenizer := html.NewTokenizer(bytes.NewReader(resource.GetBody()))
 	result = ParseResult{
-		FetchResult: data,
-		Urls:        make([]*url.URL, 0),
+		Resource: resource,
+		Urls:     make([]*url.URL, 0),
 	}
 
 	for {

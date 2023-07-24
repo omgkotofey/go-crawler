@@ -8,9 +8,21 @@ import (
 )
 
 type FetchResult struct {
-	Resource *url.URL
-	Body     []byte
-	Spent    float64
+	resource *url.URL
+	body     []byte
+	spent    float64
+}
+
+func (r FetchResult) GetUrl() *url.URL {
+	return r.resource
+}
+
+func (r FetchResult) GetBody() []byte {
+	return r.body
+}
+
+func (r FetchResult) GetSpent() float64 {
+	return r.spent
 }
 
 type Fetcher interface {
@@ -34,9 +46,9 @@ func (f HttpFetcher) Fetch(u *url.URL) (result FetchResult, err error) {
 	}
 
 	return FetchResult{
-		Resource: u,
-		Body:     body,
-		Spent:    time.Since(start).Seconds(),
+		resource: u,
+		body:     body,
+		spent:    time.Since(start).Seconds(),
 	}, nil
 }
 
