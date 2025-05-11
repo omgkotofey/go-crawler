@@ -47,6 +47,6 @@ func (p ParsedData) GetData() []string {
 	return p.data
 }
 
-func (p ParsedData) AppendData(rows []string) {
+func (p *ParsedData) AppendData(rows []string) {
 	p.data = append(p.data, rows...)
 }
