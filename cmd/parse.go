@@ -22,12 +22,10 @@ var parceCmd = &cobra.Command{
 		fetchedUrls := 0
 		errorsCount := 0
 		defer func() {
+			fmt.Println("-----------")
 			fmt.Printf("Execution Time: %.2f sec\n", time.Since(start).Seconds())
 			fmt.Printf("Fetched %v urls\n", fetchedUrls)
-			if errorsCount > 0 {
-				fmt.Printf("Got %v errors\n", errorsCount)
-
-			}
+			fmt.Printf("Got %v errors\n", errorsCount)
 		}()
 
 		parsedUrl, err := url.ParseRequestURI(args[0])
@@ -39,29 +37,33 @@ var parceCmd = &cobra.Command{
 		if err != nil || crawlDepth == 0 {
 			panic(errors.New("error: invalid depth value"))
 		}
-		resChan := make(chan string)
-		errChan := make(chan error)
+
 		crawler := crawler.NewCrawler(fetcher.NewHttpFetcher(), parser.NewHTMLParser(parsedUrl))
 
-		go crawler.Crawl(parsedUrl, crawlDepth, resChan, errChan)
+		resChan, errChan := crawler.Crawl(parsedUrl, crawlDepth)
 
-		for {
+		resChanClosed := false
+		errChanClosed := false
+
+		for !resChanClosed || !errChanClosed {
 			select {
 			case result, ok := <-resChan:
-				fmt.Println(result)
-				fetchedUrls += 1
 				if !ok {
-					resChan = nil
+					resChanClosed = true
+					continue
 				}
-			case err := <-errChan:
-				fmt.Println(err)
-				errorsCount += 1
-			}
-
-			if resChan == nil {
-				break
+				fmt.Println(result)
+				fetchedUrls++
+			case err, ok := <-errChan:
+				if !ok {
+					errChanClosed = true
+					continue
+				}
+				fmt.Println("Err:", err)
+				errorsCount++
 			}
 		}
+
 	},
 }
 

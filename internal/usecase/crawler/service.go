@@ -27,37 +27,45 @@ func (m *urlMap) add(url string) {
 }
 
 type Crawler struct {
+	wg            *sync.WaitGroup
 	fetcher       crawler.Fetcher
 	parser        crawler.Parser
 	processedUrls *urlMap
 }
 
 func NewCrawler(fetcher crawler.Fetcher, parser crawler.Parser) Crawler {
-	var mutex *sync.RWMutex
-	urlMap := urlMap{
-		urls:  make(map[string]string),
-		mutex: mutex,
-	}
-
 	return Crawler{
-		fetcher:       fetcher,
-		parser:        parser,
-		processedUrls: &urlMap,
+		wg:      &sync.WaitGroup{},
+		fetcher: fetcher,
+		parser:  parser,
+		processedUrls: &urlMap{
+			urls:  make(map[string]string),
+			mutex: &sync.RWMutex{},
+		},
 	}
 }
 
-func (c *Crawler) Crawl(urlToCrawl *url.URL, depth int, resChan chan string, errChan chan error) {
-	c.processedUrls = &urlMap{urls: map[string]string{}}
+func (c *Crawler) Crawl(urlToCrawl *url.URL, depth int) (chan string, chan error) {
+	resChan := make(chan string)
+	errChan := make(chan error)
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go c.crawlUrl(urlToCrawl, depth, resChan, errChan, &wg)
-	wg.Wait()
-	close(resChan)
+	c.scheduleUrl(urlToCrawl, depth, resChan, errChan)
+	go func() {
+		c.wg.Wait()
+		close(resChan)
+		close(errChan)
+	}()
+
+	return resChan, errChan
 }
 
-func (c *Crawler) crawlUrl(urlToCrawl *url.URL, depth int, resChan chan string, errChan chan error, wg *sync.WaitGroup) {
-	defer wg.Done()
+func (c *Crawler) scheduleUrl(urlToCrawl *url.URL, depth int, resChan chan string, errChan chan error) {
+	c.wg.Add(1)
+	go c.crawlUrl(urlToCrawl, depth, resChan, errChan)
+}
+
+func (c *Crawler) crawlUrl(urlToCrawl *url.URL, depth int, resChan chan string, errChan chan error) {
+	defer c.wg.Done()
 
 	if depth < 0 {
 		return
@@ -90,8 +98,7 @@ func (c *Crawler) crawlUrl(urlToCrawl *url.URL, depth int, resChan chan string, 
 			errChan <- err
 			return
 		}
-		wg.Add(1)
-		go c.crawlUrl(urlToCrawl, depth-1, resChan, errChan, wg)
+		c.scheduleUrl(urlToCrawl, depth-1, resChan, errChan)
 	}
 
 	resChan <- fmt.Sprintf(
