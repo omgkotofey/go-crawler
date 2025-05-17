@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"errors"
+	"experiments/internal/domain/crawler"
 	"experiments/internal/infrastructure/fetcher"
 	parser "experiments/internal/infrastructure/parser/html"
-	"experiments/internal/usecase/crawler"
+	"experiments/internal/usecase/crawl"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -38,7 +39,12 @@ var parceCmd = &cobra.Command{
 			panic(errors.New("error: invalid depth value"))
 		}
 
-		crawler := crawler.NewCrawler(fetcher.NewHttpFetcher(), parser.NewHTMLParser(parsedUrl))
+		crawler := crawl.NewCrawler(
+			fetcher.NewHttpFetcher(),
+			[]crawler.Parser{
+				parser.NewLinksParser(parsedUrl),
+			},
+		)
 
 		resChan, errChan := crawler.Crawl(parsedUrl, crawlDepth)
 

@@ -30,23 +30,53 @@ func (r FetchedResource) GetResponseTimeMs() int64 {
 	return r.responseTimeMs
 }
 
+type ParsedResource struct {
+	resource      FetchedResource
+	parcingResult []ParsedData
+}
+
+func (r ParsedResource) GetResource() FetchedResource {
+	return r.resource
+}
+
+func (p *ParsedResource) AddResults(results []ParsedData) {
+	p.parcingResult = append(p.parcingResult, results...)
+}
+
+func (p *ParsedResource) GetResults() []ParsedData {
+	return p.parcingResult
+}
+
+func NewParsedResource(resource FetchedResource, results []ParsedData) ParsedResource {
+	return ParsedResource{resource: resource, parcingResult: results}
+}
+
 type ParsedData struct {
-	resource FetchedResource
-	data     []string
+	parser ParserType
+	data   []string
+	err    error
 }
 
-func NewParsedData(resource FetchedResource, data []string) ParsedData {
-	return ParsedData{resource: resource, data: data}
+func NewParsedData(parser ParserType, data []string, err error) ParsedData {
+	return ParsedData{parser: parser, data: data, err: err}
 }
 
-func (p ParsedData) GetResource() FetchedResource {
-	return p.resource
+func (p *ParsedData) IsSuccess() bool {
+	return p.err == nil
 }
 
-func (p ParsedData) GetData() []string {
+func (p *ParsedData) GetParserType() ParserType {
+	return p.parser
+}
+
+func (p *ParsedData) GetData() []string {
 	return p.data
 }
 
 func (p *ParsedData) AppendData(rows []string) {
 	p.data = append(p.data, rows...)
+}
+
+func (p *ParsedData) SetError(err error) {
+	p.err = err
 }

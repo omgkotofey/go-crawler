@@ -1,7 +1,8 @@
-package crawler
+package crawl
 
 import (
 	"experiments/internal/domain/crawler"
+	parsers "experiments/internal/infrastructure/parser/html"
 	"fmt"
 	"net/url"
 	"sync"
@@ -29,20 +30,29 @@ func (m *urlMap) add(url string) {
 type Crawler struct {
 	wg            *sync.WaitGroup
 	fetcher       crawler.Fetcher
-	parser        crawler.Parser
+	parserSet     crawler.ParserSet
 	processedUrls *urlMap
 }
 
-func NewCrawler(fetcher crawler.Fetcher, parser crawler.Parser) Crawler {
+func NewCrawler(fetcher crawler.Fetcher, parsers []crawler.Parser) Crawler {
+	parserSet := crawler.ParserSet{}
+	for i := range parsers {
+		parserSet.AddParser(parsers[i])
+	}
+
 	return Crawler{
-		wg:      &sync.WaitGroup{},
-		fetcher: fetcher,
-		parser:  parser,
+		wg:        &sync.WaitGroup{},
+		fetcher:   fetcher,
+		parserSet: parserSet,
 		processedUrls: &urlMap{
 			urls:  make(map[string]string),
 			mutex: &sync.RWMutex{},
 		},
 	}
+}
+
+func (c *Crawler) AddParser(parser crawler.Parser) {
+	c.parserSet.AddParser(parser)
 }
 
 func (c *Crawler) Crawl(urlToCrawl *url.URL, depth int) (chan string, chan error) {
@@ -84,21 +94,23 @@ func (c *Crawler) crawlUrl(urlToCrawl *url.URL, depth int, resChan chan string, 
 		return
 	}
 
-	parseResult, err := c.parser.Parse(fetchResult)
-	if err != nil {
-		err = fmt.Errorf("error occurred while parsing %v: %v", urlToCrawl.String(), err)
-		errChan <- err
-		return
-	}
-
-	for i := range parseResult.GetData() {
-		urlToCrawl, err := url.ParseRequestURI(parseResult.GetData()[i])
-		if err != nil {
-			err = fmt.Errorf("invalid url %v: %v", parseResult.GetData()[i], err)
-			errChan <- err
-			return
+	parseResult := c.parserSet.Parse(fetchResult)
+	for i := range parseResult.GetResults() {
+		if parseResult.GetResults()[i].GetParserType() != parsers.LinksParserName {
+			continue
 		}
-		c.scheduleUrl(urlToCrawl, depth-1, resChan, errChan)
+
+		parsedLinks := parseResult.GetResults()[i].GetData()
+		for j := range parsedLinks {
+			urlToCrawl, err := url.ParseRequestURI(parsedLinks[j])
+			if err != nil {
+				err = fmt.Errorf("invalid url %v: %v", parsedLinks[j], err)
+				errChan <- err
+				return
+			}
+			c.scheduleUrl(urlToCrawl, depth-1, resChan, errChan)
+		}
+
 	}
 
 	resChan <- fmt.Sprintf(
