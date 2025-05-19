@@ -46,7 +46,7 @@ var parceCmd = &cobra.Command{
 			},
 		)
 
-		resChan, errChan := crawler.Crawl(parsedUrl, crawlDepth)
+		resChan, errChan := crawler.Crawl(parsedUrl, int64(crawlDepth))
 
 		resChanClosed := false
 		errChanClosed := false

@@ -8,30 +8,11 @@ import (
 	"sync"
 )
 
-type urlMap struct {
-	urls  map[string]string
-	mutex *sync.RWMutex
-}
-
-func (m *urlMap) exists(url string) bool {
-	m.mutex.Lock()
-	_, found := m.urls[url]
-	m.mutex.Unlock()
-
-	return found
-}
-
-func (m *urlMap) add(url string) {
-	m.mutex.Lock()
-	m.urls[url] = url
-	m.mutex.Unlock()
-}
-
 type Crawler struct {
-	wg            *sync.WaitGroup
-	fetcher       crawler.Fetcher
-	parserSet     crawler.ParserSet
-	processedUrls *urlMap
+	wg        *sync.WaitGroup
+	fetcher   crawler.Fetcher
+	parserSet crawler.ParserSet
+	inbox     *crawler.Inbox
 }
 
 func NewCrawler(fetcher crawler.Fetcher, parsers []crawler.Parser) Crawler {
@@ -44,10 +25,7 @@ func NewCrawler(fetcher crawler.Fetcher, parsers []crawler.Parser) Crawler {
 		wg:        &sync.WaitGroup{},
 		fetcher:   fetcher,
 		parserSet: parserSet,
-		processedUrls: &urlMap{
-			urls:  make(map[string]string),
-			mutex: &sync.RWMutex{},
-		},
+		inbox:     nil,
 	}
 }
 
@@ -55,13 +33,30 @@ func (c *Crawler) AddParser(parser crawler.Parser) {
 	c.parserSet.AddParser(parser)
 }
 
-func (c *Crawler) Crawl(urlToCrawl *url.URL, depth int) (chan string, chan error) {
+func (c *Crawler) Crawl(urlToCrawl *url.URL, depth int64) (chan string, chan error) {
 	resChan := make(chan string)
 	errChan := make(chan error)
+	c.inbox = crawler.NewInbox()
 
-	c.scheduleUrl(urlToCrawl, depth, resChan, errChan)
+	c.inbox.Add(urlToCrawl.String(), depth)
+	c.wg.Add(1)
+
+	go func() {
+		for {
+			task, ok := c.inbox.Next()
+			if !ok {
+				return
+			}
+			go func() {
+				c.crawlUrl(task, resChan, errChan)
+				c.wg.Done()
+			}()
+		}
+	}()
+
 	go func() {
 		c.wg.Wait()
+		c.inbox.Close()
 		close(resChan)
 		close(errChan)
 	}()
@@ -69,27 +64,21 @@ func (c *Crawler) Crawl(urlToCrawl *url.URL, depth int) (chan string, chan error
 	return resChan, errChan
 }
 
-func (c *Crawler) scheduleUrl(urlToCrawl *url.URL, depth int, resChan chan string, errChan chan error) {
-	c.wg.Add(1)
-	go c.crawlUrl(urlToCrawl, depth, resChan, errChan)
-}
-
-func (c *Crawler) crawlUrl(urlToCrawl *url.URL, depth int, resChan chan string, errChan chan error) {
-	defer c.wg.Done()
-
-	if depth < 0 {
+func (c *Crawler) crawlUrl(task crawler.Task, resChan chan string, errChan chan error) {
+	if task.Depth < 0 {
 		return
 	}
 
-	if c.processedUrls.exists(urlToCrawl.String()) {
+	urlToCrawl, err := url.ParseRequestURI(task.URL)
+	if err != nil {
+		err = fmt.Errorf("invalid url %v: %v", urlToCrawl.String(), err)
+		errChan <- err
 		return
-	} else {
-		c.processedUrls.add(urlToCrawl.String())
 	}
 
 	fetchResult, err := c.fetcher.Fetch(urlToCrawl)
 	if err != nil {
-		err = fmt.Errorf("error occurred while fetching %v: %v", urlToCrawl.String(), err)
+		err = fmt.Errorf("fetching %v: %v", urlToCrawl.String(), err)
 		errChan <- err
 		return
 	}
@@ -108,7 +97,7 @@ func (c *Crawler) crawlUrl(urlToCrawl *url.URL, depth int, resChan chan string, 
 				errChan <- err
 				return
 			}
-			c.scheduleUrl(urlToCrawl, depth-1, resChan, errChan)
+			c.inbox.Add(urlToCrawl.String(), task.Depth-1)
 		}
 
 	}
