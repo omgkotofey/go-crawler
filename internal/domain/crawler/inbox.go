@@ -32,10 +32,6 @@ func (m *Inbox) Exists(url string) bool {
 }
 
 func (m *Inbox) Add(url string, depth int64) {
-	if m.Exists(url) {
-		return
-	}
-
 	m.mutex.Lock()
 	m.seen[url] = url
 	m.mutex.Unlock()
@@ -43,9 +39,9 @@ func (m *Inbox) Add(url string, depth int64) {
 }
 
 func (m *Inbox) Next() (Task, bool) {
-	task, ok := <-m.inbox
+	url, ok := <-m.inbox
 
-	return task, ok
+	return url, ok
 }
 
 func (m *Inbox) Close() {

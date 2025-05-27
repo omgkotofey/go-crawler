@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"experiments/internal/domain/crawler"
 	"experiments/internal/infrastructure/fetcher"
+	"experiments/internal/infrastructure/logger"
 	parser "experiments/internal/infrastructure/parser/html"
 	"experiments/internal/usecase/crawl"
 	"fmt"
@@ -19,6 +21,7 @@ var parceCmd = &cobra.Command{
 	Short: "omgkotofey go experiments application",
 	Args:  cobra.MinimumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
+		appLogger := logger.InitLogger(false)
 		start := time.Now()
 		fetchedUrls := 0
 		errorsCount := 0
@@ -44,9 +47,10 @@ var parceCmd = &cobra.Command{
 			[]crawler.Parser{
 				parser.NewLinksParser(parsedUrl),
 			},
+			appLogger,
 		)
 
-		resChan, errChan := crawler.Crawl(parsedUrl, int64(crawlDepth))
+		resChan, errChan := crawler.Crawl(context.Background(), parsedUrl, int64(crawlDepth))
 
 		resChanClosed := false
 		errChanClosed := false
@@ -71,8 +75,4 @@ var parceCmd = &cobra.Command{
 		}
 
 	},
-}
-
-func init() {
-	rootCmd.AddCommand(parceCmd)
 }

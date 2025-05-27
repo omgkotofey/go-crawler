@@ -1,11 +1,14 @@
 package crawl
 
 import (
+	"context"
 	"experiments/internal/domain/crawler"
 	parsers "experiments/internal/infrastructure/parser/html"
 	"fmt"
 	"net/url"
 	"sync"
+
+	"go.uber.org/zap"
 )
 
 type Crawler struct {
@@ -13,18 +16,20 @@ type Crawler struct {
 	fetcher   crawler.Fetcher
 	parserSet crawler.ParserSet
 	inbox     *crawler.Inbox
+	logger    *zap.Logger
 }
 
-func NewCrawler(fetcher crawler.Fetcher, parsers []crawler.Parser) Crawler {
+func NewCrawler(fetcher crawler.Fetcher, parsers []crawler.Parser, logger *zap.Logger) Crawler {
 	parserSet := crawler.ParserSet{}
 	for i := range parsers {
 		parserSet.AddParser(parsers[i])
 	}
 
 	return Crawler{
-		wg:        &sync.WaitGroup{},
+		wg:        nil,
 		fetcher:   fetcher,
 		parserSet: parserSet,
+		logger:    logger,
 		inbox:     nil,
 	}
 }
@@ -33,13 +38,16 @@ func (c *Crawler) AddParser(parser crawler.Parser) {
 	c.parserSet.AddParser(parser)
 }
 
-func (c *Crawler) Crawl(urlToCrawl *url.URL, depth int64) (chan string, chan error) {
+func (c *Crawler) Crawl(ctx context.Context, urlToCrawl *url.URL, depth int64) (chan string, chan error) {
 	resChan := make(chan string)
 	errChan := make(chan error)
 	c.inbox = crawler.NewInbox()
-
-	c.inbox.Add(urlToCrawl.String(), depth)
+	c.wg = &sync.WaitGroup{}
 	c.wg.Add(1)
+
+	defer func() {
+		c.inbox.Add(urlToCrawl.String(), depth)
+	}()
 
 	go func() {
 		for {
@@ -48,8 +56,8 @@ func (c *Crawler) Crawl(urlToCrawl *url.URL, depth int64) (chan string, chan err
 				return
 			}
 			go func() {
+				defer c.wg.Done()
 				c.crawlUrl(task, resChan, errChan)
-				c.wg.Done()
 			}()
 		}
 	}()
@@ -76,6 +84,7 @@ func (c *Crawler) crawlUrl(task crawler.Task, resChan chan string, errChan chan 
 		return
 	}
 
+	fmt.Printf("Started fetching %s \n", urlToCrawl.String())
 	fetchResult, err := c.fetcher.Fetch(urlToCrawl)
 	if err != nil {
 		err = fmt.Errorf("fetching %v: %v", urlToCrawl.String(), err)
@@ -97,6 +106,13 @@ func (c *Crawler) crawlUrl(task crawler.Task, resChan chan string, errChan chan 
 				errChan <- err
 				return
 			}
+
+			if c.inbox.Exists(urlToCrawl.String()) {
+				continue
+			}
+
+			fmt.Printf("Scheduled %s, depth left: %v\n", urlToCrawl.String(), task.Depth-1)
+			c.wg.Add(1)
 			c.inbox.Add(urlToCrawl.String(), task.Depth-1)
 		}
 
