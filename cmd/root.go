@@ -1,8 +1,7 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
+	"experiments/internal/app"
 
 	"github.com/spf13/cobra"
 )
@@ -24,15 +23,9 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-func Execute() {
-	err := rootCmd.Execute()
+func NewRootCommand(app *app.App) *cobra.Command {
+	rootCmd.AddCommand(newParseCommand(app))
 
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-}
+	return rootCmd
 
-func init() {
-	rootCmd.AddCommand(parceCmd)
 }
