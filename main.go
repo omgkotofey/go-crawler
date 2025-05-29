@@ -7,12 +7,14 @@ import (
 	"experiments/internal/config"
 	"fmt"
 	"os"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	ctx := context.Background()
+	_ = godotenv.Load()
 
-	cfg, err := config.Load(ctx)
+	cfg, err := config.Load(context.Background())
 	if err != nil {
 		panic(fmt.Sprintf("failed to load config: %v", err))
 	}

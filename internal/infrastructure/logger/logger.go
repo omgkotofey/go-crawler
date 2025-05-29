@@ -14,6 +14,7 @@ func InitLogger(isProduction bool) *zap.Logger {
 	}
 
 	var err error
+
 	if isProduction {
 		log, err = zap.NewProduction()
 	} else {

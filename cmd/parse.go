@@ -25,6 +25,8 @@ func newParseCommand(app *app.App) *cobra.Command {
 			start := time.Now()
 			fetchedUrls := 0
 			errorsCount := 0
+			logger := app.Logger
+
 			defer func() {
 				fmt.Println("-----------")
 				fmt.Printf("Execution Time: %.2f sec\n", time.Since(start).Seconds())
@@ -43,11 +45,12 @@ func newParseCommand(app *app.App) *cobra.Command {
 			}
 
 			crawler := crawl.NewCrawler(
+				*app.Config,
 				fetcher.NewHttpFetcher(),
 				[]crawler.Parser{
 					parser.NewLinksParser(parsedUrl),
 				},
-				app.Logger,
+				logger,
 			)
 
 			resChan, errChan := crawler.Crawl(context.Background(), parsedUrl, int64(crawlDepth))
@@ -62,14 +65,14 @@ func newParseCommand(app *app.App) *cobra.Command {
 						resChanClosed = true
 						continue
 					}
-					fmt.Println(result)
+					logger.Info(result)
 					fetchedUrls++
 				case err, ok := <-errChan:
 					if !ok {
 						errChanClosed = true
 						continue
 					}
-					fmt.Println("Err:", err)
+					logger.Error(fmt.Sprintf("Err: %s", err))
 					errorsCount++
 				}
 			}

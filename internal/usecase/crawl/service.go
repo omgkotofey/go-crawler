@@ -2,6 +2,7 @@ package crawl
 
 import (
 	"context"
+	"experiments/internal/config"
 	"experiments/internal/domain/crawler"
 	parsers "experiments/internal/infrastructure/parser/html"
 	"fmt"
@@ -13,20 +14,28 @@ import (
 
 type Crawler struct {
 	wg        *sync.WaitGroup
+	limiter   chan struct{}
 	fetcher   crawler.Fetcher
 	parserSet crawler.ParserSet
 	inbox     *crawler.Inbox
 	logger    *zap.Logger
 }
 
-func NewCrawler(fetcher crawler.Fetcher, parsers []crawler.Parser, logger *zap.Logger) Crawler {
+func NewCrawler(cfg config.Config, fetcher crawler.Fetcher, parsers []crawler.Parser, logger *zap.Logger) Crawler {
 	parserSet := crawler.ParserSet{}
 	for i := range parsers {
 		parserSet.AddParser(parsers[i])
 	}
 
+	limit := cfg.Crawler.MaxParallelFetches
+	if limit == 0 {
+		limit = 1
+	}
+	limiter := make(chan struct{}, limit)
+
 	return Crawler{
 		wg:        nil,
+		limiter:   limiter,
 		fetcher:   fetcher,
 		parserSet: parserSet,
 		logger:    logger,
@@ -84,13 +93,16 @@ func (c *Crawler) crawlUrl(task crawler.Task, resChan chan string, errChan chan 
 		return
 	}
 
-	fmt.Printf("Started fetching %s \n", urlToCrawl.String())
+	c.limiter <- struct{}{}
+	c.logger.Debug(fmt.Sprintf("Start fetching %s", urlToCrawl.String()))
 	fetchResult, err := c.fetcher.Fetch(urlToCrawl)
 	if err != nil {
 		err = fmt.Errorf("fetching %v: %v", urlToCrawl.String(), err)
 		errChan <- err
 		return
 	}
+	c.logger.Debug(fmt.Sprintf("Finished fetching %s", urlToCrawl.String()))
+	<-c.limiter
 
 	parseResult := c.parserSet.Parse(fetchResult)
 	for i := range parseResult.GetResults() {
@@ -111,7 +123,7 @@ func (c *Crawler) crawlUrl(task crawler.Task, resChan chan string, errChan chan 
 				continue
 			}
 
-			fmt.Printf("Scheduled %s, depth left: %v\n", urlToCrawl.String(), task.Depth-1)
+			c.logger.Debug(fmt.Sprintf("Scheduled %s, depth left: %v", urlToCrawl.String(), task.Depth-1))
 			c.wg.Add(1)
 			c.inbox.Add(urlToCrawl.String(), task.Depth-1)
 		}
@@ -119,7 +131,7 @@ func (c *Crawler) crawlUrl(task crawler.Task, resChan chan string, errChan chan 
 	}
 
 	resChan <- fmt.Sprintf(
-		"fetched %s. response length: %d (%v ms)",
+		"Fetched %s. response length: %d (%v ms)",
 		urlToCrawl,
 		len(parseResult.GetResource().GetBody()),
 		parseResult.GetResource().GetResponseTimeMs(),

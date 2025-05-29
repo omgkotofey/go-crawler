@@ -10,18 +10,18 @@ import (
 const production = "production"
 const development = "development"
 
-type appConfig struct {
-	Debug bool   `env:"DEBUG,default=false"`
-	Env   string `env:"ENV,default=development"`
+type AppConfig struct {
+	Env     string `env:"ENV,default=development"`
+	Version string `env:"VERSION,required"`
 }
 
-type crawlerConfig struct {
-	WorkerPool int `env:"WORKER_POOL,default=100"`
+type CrawlerConfig struct {
+	MaxParallelFetches int `env:"MAX_PARALLEL_FETCHES,default=100"`
 }
 
 type Config struct {
-	App     appConfig     `env:"APP_"`
-	Crawler crawlerConfig `env:"CRAWLER_"`
+	App     AppConfig     `env:", prefix=APP_"`
+	Crawler CrawlerConfig `env:", prefix=CRAWLER_"`
 }
 
 func (cfg *Config) Validate() {
