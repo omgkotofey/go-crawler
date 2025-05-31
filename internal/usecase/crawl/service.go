@@ -12,6 +12,11 @@ import (
 	"go.uber.org/zap"
 )
 
+type CrawlRequest struct {
+	Url   *url.URL
+	Depth int64
+}
+
 type Crawler struct {
 	wg        *sync.WaitGroup
 	limiter   chan struct{}
@@ -47,7 +52,7 @@ func (c *Crawler) AddParser(parser crawler.Parser) {
 	c.parserSet.AddParser(parser)
 }
 
-func (c *Crawler) Crawl(ctx context.Context, urlToCrawl *url.URL, depth int64) (chan string, chan error) {
+func (c *Crawler) Crawl(ctx context.Context, target CrawlRequest) (chan string, chan error) {
 	resChan := make(chan string)
 	errChan := make(chan error)
 	c.inbox = crawler.NewInbox()
@@ -55,7 +60,7 @@ func (c *Crawler) Crawl(ctx context.Context, urlToCrawl *url.URL, depth int64) (
 	c.wg.Add(1)
 
 	defer func() {
-		c.inbox.Add(urlToCrawl.String(), depth)
+		c.inbox.Add(target.Url.String(), target.Depth)
 	}()
 
 	go func() {
