@@ -1,6 +1,7 @@
 package fetcher
 
 import (
+	"context"
 	"experiments/internal/domain/crawler"
 	"io"
 	"net/http"
@@ -12,14 +13,21 @@ type HttpFetcher struct {
 	Client *http.Client
 }
 
-func (f HttpFetcher) Fetch(u *url.URL) (crawler.FetchedResource, error) {
+func (f HttpFetcher) Fetch(ctx context.Context, u *url.URL) (crawler.FetchedResource, error) {
 	start := time.Now()
 	result := crawler.FetchedResource{}
-	resp, err := f.Client.Get(u.String())
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		return result, err
+	}
+
+	resp, err := f.Client.Do(req)
 	if err != nil {
 		return result, err
 	}
 	defer resp.Body.Close()
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return result, err

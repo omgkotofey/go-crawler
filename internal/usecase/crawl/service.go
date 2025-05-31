@@ -65,14 +65,20 @@ func (c *Crawler) Crawl(ctx context.Context, target CrawlRequest) (chan string, 
 
 	go func() {
 		for {
-			task, ok := c.inbox.Next()
-			if !ok {
+			select {
+			case <-ctx.Done():
+				c.logger.Warn("Context cancelled")
 				return
+			default:
+				task, ok := c.inbox.Next()
+				if !ok {
+					return
+				}
+				go func() {
+					defer c.wg.Done()
+					c.crawlUrl(ctx, task, resChan, errChan)
+				}()
 			}
-			go func() {
-				defer c.wg.Done()
-				c.crawlUrl(task, resChan, errChan)
-			}()
 		}
 	}()
 
@@ -86,7 +92,7 @@ func (c *Crawler) Crawl(ctx context.Context, target CrawlRequest) (chan string, 
 	return resChan, errChan
 }
 
-func (c *Crawler) crawlUrl(task crawler.Task, resChan chan string, errChan chan error) {
+func (c *Crawler) crawlUrl(ctx context.Context, task crawler.Task, resChan chan string, errChan chan error) {
 	if task.Depth < 0 {
 		return
 	}
@@ -100,10 +106,12 @@ func (c *Crawler) crawlUrl(task crawler.Task, resChan chan string, errChan chan 
 
 	c.limiter <- struct{}{}
 	c.logger.Debug(fmt.Sprintf("Start fetching %s", urlToCrawl.String()))
-	fetchResult, err := c.fetcher.Fetch(urlToCrawl)
+	fetchResult, err := c.fetcher.Fetch(ctx, urlToCrawl)
 	if err != nil {
 		err = fmt.Errorf("fetching %v: %v", urlToCrawl.String(), err)
+		<-c.limiter
 		errChan <- err
+
 		return
 	}
 	c.logger.Debug(fmt.Sprintf("Finished fetching %s", urlToCrawl.String()))

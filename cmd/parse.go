@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"context"
+	"errors"
 	"experiments/internal/app"
 	"experiments/internal/domain/crawler"
 	"experiments/internal/infrastructure/fetcher"
@@ -20,7 +20,7 @@ func newParseCommand(app *app.App) *cobra.Command {
 		Use:   "parse [url] [depth]",
 		Short: "omgkotofey go experiments application",
 		Args:  cobra.MinimumNArgs(2),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			start := time.Now()
 			fetchedUrls := 0
 			errorsCount := 0
@@ -37,13 +37,15 @@ func newParseCommand(app *app.App) *cobra.Command {
 			if err != nil {
 				logger.Fatal(err.Error())
 
-				return
+				return err
 			}
 
 			crawlDepth, err := strconv.Atoi(args[1])
 			if err != nil || crawlDepth <= 0 {
-				logger.Fatal("error: invalid depth value")
-				return
+				err := errors.New("error: invalid depth value")
+				logger.Fatal(err.Error())
+
+				return err
 			}
 
 			crawler := crawl.NewCrawler(
@@ -56,7 +58,7 @@ func newParseCommand(app *app.App) *cobra.Command {
 			)
 
 			resChan, errChan := crawler.Crawl(
-				context.Background(),
+				cmd.Context(),
 				crawl.CrawlRequest{
 					Url:   parsedUrl,
 					Depth: int64(crawlDepth),
@@ -85,6 +87,7 @@ func newParseCommand(app *app.App) *cobra.Command {
 				}
 			}
 
+			return nil
 		},
 	}
 }

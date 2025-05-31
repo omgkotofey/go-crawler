@@ -1,11 +1,12 @@
 package crawler
 
 import (
+	"context"
 	"net/url"
 )
 
 type Fetcher interface {
-	Fetch(url *url.URL) (result FetchedResource, err error)
+	Fetch(ctx context.Context, url *url.URL) (result FetchedResource, err error)
 }
 
 type FetchedResource struct {
