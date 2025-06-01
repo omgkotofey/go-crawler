@@ -15,8 +15,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const timeoutFlag = "timeout"
+
 func newParseCommand(app *app.App) *cobra.Command {
-	return &cobra.Command{
+	command := &cobra.Command{
 		Use:   "parse [url] [depth]",
 		Short: "omgkotofey go experiments application",
 		Args:  cobra.MinimumNArgs(2),
@@ -42,9 +44,16 @@ func newParseCommand(app *app.App) *cobra.Command {
 
 			crawlDepth, err := strconv.Atoi(args[1])
 			if err != nil || crawlDepth <= 0 {
-				err := errors.New("error: invalid depth value")
+				err := errors.New("invalid depth value")
 				logger.Fatal(err.Error())
 
+				return err
+			}
+
+			timeout, err := cmd.Flags().GetDuration(timeoutFlag)
+			if err != nil {
+				err := fmt.Errorf("invalid duration value: %w", err)
+				logger.Fatal(err.Error())
 				return err
 			}
 
@@ -60,8 +69,9 @@ func newParseCommand(app *app.App) *cobra.Command {
 			resChan, errChan := crawler.Crawl(
 				cmd.Context(),
 				crawl.CrawlRequest{
-					Url:   parsedUrl,
-					Depth: int64(crawlDepth),
+					Url:     parsedUrl,
+					Depth:   int64(crawlDepth),
+					Timeout: timeout,
 				},
 			)
 
@@ -90,4 +100,9 @@ func newParseCommand(app *app.App) *cobra.Command {
 			return nil
 		},
 	}
+
+	var timeout time.Duration
+	command.Flags().DurationVar(&timeout, "timeout", app.Config.Crawler.DefaultFetchTimeout, "Request timeout (e.g. 5s, 1m)")
+
+	return command
 }

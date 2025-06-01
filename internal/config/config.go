@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/sethvargo/go-envconfig"
 )
@@ -16,7 +17,8 @@ type AppConfig struct {
 }
 
 type CrawlerConfig struct {
-	MaxParallelFetches int `env:"MAX_PARALLEL_FETCHES,default=100"`
+	MaxParallelFetches  int           `env:"MAX_PARALLEL_FETCHES,default=100"`
+	DefaultFetchTimeout time.Duration `env:"DEFAULT_FETCH_TIMEOUT,default=3s"`
 }
 
 type Config struct {

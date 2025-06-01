@@ -2,11 +2,13 @@ package crawler
 
 import (
 	"sync"
+	"time"
 )
 
 type Task struct {
-	URL   string
-	Depth int64
+	URL     string
+	Depth   int64
+	Timeout time.Duration
 }
 
 type Inbox struct {
@@ -31,11 +33,11 @@ func (m *Inbox) Exists(url string) bool {
 	return found
 }
 
-func (m *Inbox) Add(url string, depth int64) {
+func (m *Inbox) Add(url string, depth int64, timeout time.Duration) {
 	m.mutex.Lock()
 	m.seen[url] = url
 	m.mutex.Unlock()
-	m.inbox <- Task{URL: url, Depth: depth}
+	m.inbox <- Task{URL: url, Depth: depth, Timeout: timeout}
 }
 
 func (m *Inbox) Next() (Task, bool) {

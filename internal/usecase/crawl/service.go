@@ -8,13 +8,15 @@ import (
 	"fmt"
 	"net/url"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 )
 
 type CrawlRequest struct {
-	Url   *url.URL
-	Depth int64
+	Url     *url.URL
+	Depth   int64
+	Timeout time.Duration
 }
 
 type Crawler struct {
@@ -60,7 +62,7 @@ func (c *Crawler) Crawl(ctx context.Context, target CrawlRequest) (chan string, 
 	c.wg.Add(1)
 
 	defer func() {
-		c.inbox.Add(target.Url.String(), target.Depth)
+		c.inbox.Add(target.Url.String(), target.Depth, target.Timeout)
 	}()
 
 	go func() {
@@ -104,18 +106,12 @@ func (c *Crawler) crawlUrl(ctx context.Context, task crawler.Task, resChan chan 
 		return
 	}
 
-	c.limiter <- struct{}{}
-	c.logger.Debug(fmt.Sprintf("Start fetching %s", urlToCrawl.String()))
-	fetchResult, err := c.fetcher.Fetch(ctx, urlToCrawl)
+	fetchResult, err := c.fetchUrl(ctx, urlToCrawl, task.Timeout)
 	if err != nil {
-		err = fmt.Errorf("fetching %v: %v", urlToCrawl.String(), err)
-		<-c.limiter
 		errChan <- err
 
 		return
 	}
-	c.logger.Debug(fmt.Sprintf("Finished fetching %s", urlToCrawl.String()))
-	<-c.limiter
 
 	parseResult := c.parserSet.Parse(fetchResult)
 	for i := range parseResult.GetResults() {
@@ -135,10 +131,9 @@ func (c *Crawler) crawlUrl(ctx context.Context, task crawler.Task, resChan chan 
 			if c.inbox.Exists(urlToCrawl.String()) {
 				continue
 			}
-
 			c.logger.Debug(fmt.Sprintf("Scheduled %s, depth left: %v", urlToCrawl.String(), task.Depth-1))
 			c.wg.Add(1)
-			c.inbox.Add(urlToCrawl.String(), task.Depth-1)
+			c.inbox.Add(urlToCrawl.String(), task.Depth-1, task.Timeout)
 		}
 
 	}
@@ -149,4 +144,30 @@ func (c *Crawler) crawlUrl(ctx context.Context, task crawler.Task, resChan chan 
 		len(parseResult.GetResource().GetBody()),
 		parseResult.GetResource().GetResponseTimeMs(),
 	)
+}
+
+func (c *Crawler) fetchUrl(ctx context.Context, urlToFetch *url.URL, timeout time.Duration) (crawler.FetchedResource, error) {
+	urlAsString := urlToFetch.String()
+	var result crawler.FetchedResource
+
+	c.limiter <- struct{}{}
+	defer func() {
+		<-c.limiter
+	}()
+
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	c.logger.Debug(fmt.Sprintf("Start fetching %s", urlAsString))
+
+	result, err := c.fetcher.Fetch(ctxWithTimeout, urlToFetch)
+	if err != nil {
+		err = fmt.Errorf("fetching %v: %v", urlAsString, err)
+
+		return result, err
+	}
+
+	c.logger.Debug(fmt.Sprintf("Finished fetching %s", urlAsString))
+
+	return result, nil
 }
