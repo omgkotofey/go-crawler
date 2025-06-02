@@ -14,9 +14,10 @@ import (
 )
 
 type CrawlRequest struct {
-	Url     *url.URL
-	Depth   int64
-	Timeout time.Duration
+	Url      *url.URL
+	Depth    int64
+	Timeout  time.Duration
+	Cooldown time.Duration
 }
 
 type Crawler struct {
@@ -76,10 +77,16 @@ func (c *Crawler) Crawl(ctx context.Context, target CrawlRequest) (chan string, 
 				if !ok {
 					return
 				}
+
 				go func() {
 					defer c.wg.Done()
 					c.crawlUrl(ctx, task, resChan, errChan)
 				}()
+
+				if target.Cooldown != 0 {
+					c.logger.Debug(fmt.Sprintf("Cooldown %s", target.Cooldown))
+					time.Sleep(target.Cooldown)
+				}
 			}
 		}
 	}()

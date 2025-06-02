@@ -16,6 +16,7 @@ import (
 )
 
 const timeoutFlag = "timeout"
+const cooldownFlag = "cooldown"
 
 func newParseCommand(app *app.App) *cobra.Command {
 	command := &cobra.Command{
@@ -57,6 +58,13 @@ func newParseCommand(app *app.App) *cobra.Command {
 				return err
 			}
 
+			cooldown, err := cmd.Flags().GetDuration(cooldownFlag)
+			if err != nil {
+				err := fmt.Errorf("invalid cooldown value: %w", err)
+				logger.Fatal(err.Error())
+				return err
+			}
+
 			crawler := crawl.NewCrawler(
 				*app.Config,
 				fetcher.NewHttpFetcher(),
@@ -69,9 +77,10 @@ func newParseCommand(app *app.App) *cobra.Command {
 			resChan, errChan := crawler.Crawl(
 				cmd.Context(),
 				crawl.CrawlRequest{
-					Url:     parsedUrl,
-					Depth:   int64(crawlDepth),
-					Timeout: timeout,
+					Url:      parsedUrl,
+					Depth:    int64(crawlDepth),
+					Timeout:  timeout,
+					Cooldown: cooldown,
 				},
 			)
 
@@ -101,8 +110,9 @@ func newParseCommand(app *app.App) *cobra.Command {
 		},
 	}
 
-	var timeout time.Duration
-	command.Flags().DurationVar(&timeout, "timeout", app.Config.Crawler.DefaultFetchTimeout, "Request timeout (e.g. 5s, 1m)")
+	var timeout, cooldown time.Duration
+	command.Flags().DurationVar(&timeout, timeoutFlag, app.Config.Crawler.DefaultFetchTimeout, "Request timeout (e.g. 5s, 1m)")
+	command.Flags().DurationVar(&cooldown, cooldownFlag, app.Config.Crawler.DefaultFetchCooldown, "Fetching cooldown (e.g. 300ms, 1s)")
 
 	return command
 }

@@ -17,8 +17,9 @@ type AppConfig struct {
 }
 
 type CrawlerConfig struct {
-	MaxParallelFetches  int           `env:"MAX_PARALLEL_FETCHES,default=100"`
-	DefaultFetchTimeout time.Duration `env:"DEFAULT_FETCH_TIMEOUT,default=3s"`
+	MaxParallelFetches   int           `env:"MAX_PARALLEL_FETCHES,default=100"`
+	DefaultFetchTimeout  time.Duration `env:"DEFAULT_FETCH_TIMEOUT,default=3s"`
+	DefaultFetchCooldown time.Duration `env:"DEFAULT_FETCH_COOLDOWN,default=0ms"`
 }
 
 type Config struct {

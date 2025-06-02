@@ -6,9 +6,10 @@ import (
 )
 
 type Task struct {
-	URL     string
-	Depth   int64
-	Timeout time.Duration
+	URL      string
+	Depth    int64
+	Timeout  time.Duration
+	Cooldown time.Duration
 }
 
 type Inbox struct {
