@@ -3,10 +3,10 @@ package cmd
 import (
 	"errors"
 	"experiments/internal/app"
-	"experiments/internal/domain/crawler"
+	crawler "experiments/internal/domain/crawler"
 	"experiments/internal/infrastructure/fetcher"
 	parser "experiments/internal/infrastructure/parser/html"
-	"experiments/internal/usecase/crawl"
+	"experiments/internal/usecase/crawling"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -24,17 +24,7 @@ func newParseCommand(app *app.App) *cobra.Command {
 		Short: "omgkotofey go experiments application",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			start := time.Now()
-			fetchedUrls := 0
-			errorsCount := 0
 			logger := app.Logger
-
-			defer func() {
-				fmt.Println("-----------")
-				fmt.Printf("Execution Time: %.2f sec\n", time.Since(start).Seconds())
-				fmt.Printf("Fetched %v urls\n", fetchedUrls)
-				fmt.Printf("Got %v errors\n", errorsCount)
-			}()
 
 			parsedUrl, err := url.ParseRequestURI(args[0])
 			if err != nil {
@@ -65,7 +55,7 @@ func newParseCommand(app *app.App) *cobra.Command {
 				return err
 			}
 
-			crawler := crawl.NewCrawler(
+			crawlerInstance := crawling.NewCrawler(
 				*app.Config,
 				fetcher.NewHttpFetcher(),
 				[]crawler.Parser{
@@ -74,9 +64,9 @@ func newParseCommand(app *app.App) *cobra.Command {
 				logger,
 			)
 
-			resChan, errChan := crawler.Crawl(
-				cmd.Context(),
-				crawl.CrawlRequest{
+			crawlingResult := crawlerInstance.Crawl(
+				crawler.CrawlRequest{
+					Context:  cmd.Context(),
 					Url:      parsedUrl,
 					Depth:    int64(crawlDepth),
 					Timeout:  timeout,
@@ -84,27 +74,30 @@ func newParseCommand(app *app.App) *cobra.Command {
 				},
 			)
 
-			resChanClosed := false
-			errChanClosed := false
+			summary := crawlingResult.GetSummary()
+			fmt.Println("Results:")
+			for i := range summary.GetResults() {
+				result := summary.GetResults()[i]
+				fmt.Printf(
+					"Parsed %s. Response length: %d (%v ms) \n",
+					result.GetResource().GetUrl(),
+					len(result.GetResource().GetBody()),
+					result.GetResource().GetResponseTimeMs(),
+				)
+			}
+			fmt.Println("-----------")
 
-			for !resChanClosed || !errChanClosed {
-				select {
-				case result, ok := <-resChan:
-					if !ok {
-						resChanClosed = true
-						continue
-					}
-					logger.Info(result)
-					fetchedUrls++
-				case err, ok := <-errChan:
-					if !ok {
-						errChanClosed = true
-						continue
-					}
-					logger.Error(fmt.Sprintf("Err: %s", err))
-					errorsCount++
+			if summary.TotalErrors() > 0 {
+				fmt.Println("Errors:")
+				for i := range summary.GetErorrs() {
+					fmt.Printf("Err: %s\n", summary.GetErorrs()[i])
 				}
 			}
+
+			fmt.Println("-----------")
+			fmt.Printf("Execution Time: %.2f sec\n", summary.GetDuration().Seconds())
+			fmt.Printf("Fetched %v urls\n", summary.TotalParsed())
+			fmt.Printf("Got %v errors\n", summary.TotalErrors())
 
 			return nil
 		},

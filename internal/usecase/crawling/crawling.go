@@ -1,4 +1,4 @@
-package crawl
+package crawling
 
 import (
 	"context"
@@ -12,13 +12,6 @@ import (
 
 	"go.uber.org/zap"
 )
-
-type CrawlRequest struct {
-	Url      *url.URL
-	Depth    int64
-	Timeout  time.Duration
-	Cooldown time.Duration
-}
 
 type Crawler struct {
 	wg        *sync.WaitGroup
@@ -55,15 +48,17 @@ func (c *Crawler) AddParser(parser crawler.Parser) {
 	c.parserSet.AddParser(parser)
 }
 
-func (c *Crawler) Crawl(ctx context.Context, target CrawlRequest) (chan string, chan error) {
-	resChan := make(chan string)
-	errChan := make(chan error)
+func (c *Crawler) Crawl(request crawler.CrawlRequest) *crawler.CrawlResult {
+	ctx := request.Context
+	result := crawler.NewCrawlResultForRequest(request)
+	resChan, errChan := result.Channels()
+
 	c.inbox = crawler.NewInbox()
 	c.wg = &sync.WaitGroup{}
 	c.wg.Add(1)
 
 	defer func() {
-		c.inbox.Add(target.Url.String(), target.Depth, target.Timeout)
+		c.inbox.Add(request.Url.String(), request.Depth, request.Timeout)
 	}()
 
 	go func() {
@@ -83,9 +78,9 @@ func (c *Crawler) Crawl(ctx context.Context, target CrawlRequest) (chan string, 
 					c.crawlUrl(ctx, task, resChan, errChan)
 				}()
 
-				if target.Cooldown != 0 {
-					c.logger.Debug(fmt.Sprintf("Cooldown %s", target.Cooldown))
-					time.Sleep(target.Cooldown)
+				if request.Cooldown != 0 {
+					c.logger.Debug(fmt.Sprintf("Cooldown %s", request.Cooldown))
+					time.Sleep(request.Cooldown)
 				}
 			}
 		}
@@ -94,14 +89,13 @@ func (c *Crawler) Crawl(ctx context.Context, target CrawlRequest) (chan string, 
 	go func() {
 		c.wg.Wait()
 		c.inbox.Close()
-		close(resChan)
-		close(errChan)
+		result.Done()
 	}()
 
-	return resChan, errChan
+	return result
 }
 
-func (c *Crawler) crawlUrl(ctx context.Context, task crawler.Task, resChan chan string, errChan chan error) {
+func (c *Crawler) crawlUrl(ctx context.Context, task crawler.Task, resChan chan crawler.ParsedResource, errChan chan error) {
 	if task.Depth < 0 {
 		return
 	}
@@ -145,12 +139,7 @@ func (c *Crawler) crawlUrl(ctx context.Context, task crawler.Task, resChan chan 
 
 	}
 
-	resChan <- fmt.Sprintf(
-		"Fetched %s. response length: %d (%v ms)",
-		urlToCrawl,
-		len(parseResult.GetResource().GetBody()),
-		parseResult.GetResource().GetResponseTimeMs(),
-	)
+	resChan <- parseResult
 }
 
 func (c *Crawler) fetchUrl(ctx context.Context, urlToFetch *url.URL, timeout time.Duration) (crawler.FetchedResource, error) {
