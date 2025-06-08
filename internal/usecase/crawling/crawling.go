@@ -96,10 +96,6 @@ func (c *Crawler) Crawl(request crawler.CrawlRequest) *crawler.CrawlResult {
 }
 
 func (c *Crawler) crawlUrl(ctx context.Context, task crawler.Task, resChan chan crawler.ParsedResource, errChan chan error) {
-	if task.Depth < 0 {
-		return
-	}
-
 	urlToCrawl, err := url.ParseRequestURI(task.URL)
 	if err != nil {
 		err = fmt.Errorf("invalid url %v: %v", urlToCrawl.String(), err)
@@ -130,13 +126,23 @@ func (c *Crawler) crawlUrl(ctx context.Context, task crawler.Task, resChan chan 
 			}
 
 			if c.inbox.Exists(urlToCrawl.String()) {
+				c.logger.Debug(fmt.Sprintf("Skipped %s: already seen", urlToCrawl.String()))
 				continue
 			}
-			c.logger.Debug(fmt.Sprintf("Scheduled %s, depth left: %v", urlToCrawl.String(), task.Depth-1))
+
+			depthLeft := task.Depth
+			if task.Depth > 0 {
+				depthLeft = task.Depth - 1
+			}
+
+			if depthLeft == 0 {
+				return
+			}
+
+			c.logger.Debug(fmt.Sprintf("Scheduled %s, depth left: %v", urlToCrawl.String(), depthLeft))
 			c.wg.Add(1)
 			c.inbox.Add(urlToCrawl.String(), task.Depth-1, task.Timeout)
 		}
-
 	}
 
 	resChan <- parseResult

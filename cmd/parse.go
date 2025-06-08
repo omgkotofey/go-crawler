@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"errors"
 	"experiments/internal/app"
 	crawler "experiments/internal/domain/crawler"
 	"experiments/internal/infrastructure/fetcher"
@@ -9,20 +8,20 @@ import (
 	"experiments/internal/usecase/crawling"
 	"fmt"
 	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
 )
 
+const depthFlag = "depth"
 const timeoutFlag = "timeout"
 const cooldownFlag = "cooldown"
 
 func newParseCommand(app *app.App) *cobra.Command {
 	command := &cobra.Command{
-		Use:   "parse [url] [depth]",
+		Use:   "parse [url]",
 		Short: "omgkotofey go experiments application",
-		Args:  cobra.MinimumNArgs(2),
+		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := app.Logger
 
@@ -33,11 +32,10 @@ func newParseCommand(app *app.App) *cobra.Command {
 				return err
 			}
 
-			crawlDepth, err := strconv.Atoi(args[1])
-			if err != nil || crawlDepth <= 0 {
-				err := errors.New("invalid depth value")
+			crawlDepth, err := cmd.Flags().GetInt64(depthFlag)
+			if err != nil {
+				err := fmt.Errorf("invalid depth value: %w", err)
 				logger.Fatal(err.Error())
-
 				return err
 			}
 
@@ -85,9 +83,9 @@ func newParseCommand(app *app.App) *cobra.Command {
 					result.GetResource().GetResponseTimeMs(),
 				)
 			}
-			fmt.Println("-----------")
 
 			if summary.TotalErrors() > 0 {
+				fmt.Println("-----------")
 				fmt.Println("Errors:")
 				for i := range summary.GetErorrs() {
 					fmt.Printf("Err: %s\n", summary.GetErorrs()[i])
@@ -96,14 +94,16 @@ func newParseCommand(app *app.App) *cobra.Command {
 
 			fmt.Println("-----------")
 			fmt.Printf("Execution Time: %.2f sec\n", summary.GetDuration().Seconds())
-			fmt.Printf("Fetched %v urls\n", summary.TotalParsed())
+			fmt.Printf("Parsed %v urls\n", summary.TotalParsed())
 			fmt.Printf("Got %v errors\n", summary.TotalErrors())
 
 			return nil
 		},
 	}
 
+	var depth int64
 	var timeout, cooldown time.Duration
+	command.Flags().Int64Var(&depth, depthFlag, -1, "Max depth to crawling (e.g. -1 - unlimited depth, 0 - only specified resource, N - N levels down)")
 	command.Flags().DurationVar(&timeout, timeoutFlag, app.Config.Crawler.DefaultFetchTimeout, "Request timeout (e.g. 5s, 1m)")
 	command.Flags().DurationVar(&cooldown, cooldownFlag, app.Config.Crawler.DefaultFetchCooldown, "Fetching cooldown (e.g. 300ms, 1s)")
 

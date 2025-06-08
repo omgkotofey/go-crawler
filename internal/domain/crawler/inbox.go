@@ -14,14 +14,14 @@ type Task struct {
 
 type Inbox struct {
 	inbox chan Task
-	seen  map[string]string
+	seen  map[string]int8
 	mutex *sync.RWMutex
 }
 
 func NewInbox() *Inbox {
 	return &Inbox{
 		inbox: make(chan Task),
-		seen:  make(map[string]string),
+		seen:  make(map[string]int8),
 		mutex: &sync.RWMutex{},
 	}
 }
@@ -36,7 +36,7 @@ func (m *Inbox) Exists(url string) bool {
 
 func (m *Inbox) Add(url string, depth int64, timeout time.Duration) {
 	m.mutex.Lock()
-	m.seen[url] = url
+	m.seen[url] = 1
 	m.mutex.Unlock()
 	m.inbox <- Task{URL: url, Depth: depth, Timeout: timeout}
 }
