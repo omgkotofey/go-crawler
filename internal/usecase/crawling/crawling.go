@@ -2,14 +2,14 @@ package crawling
 
 import (
 	"context"
-	"experiments/internal/config"
-	"experiments/internal/domain/crawler"
-	parsers "experiments/internal/infrastructure/parser/html"
 	"fmt"
 	"net/url"
 	"sync"
 	"time"
 
+	"experiments/internal/config"
+	"experiments/internal/domain/crawler"
+	parsers "experiments/internal/infrastructure/parser/html"
 	"go.uber.org/zap"
 )
 
@@ -58,7 +58,7 @@ func (c *Crawler) Crawl(request crawler.CrawlRequest) *crawler.CrawlResult {
 	c.wg.Add(1)
 
 	defer func() {
-		c.inbox.Add(request.Url.String(), request.Depth, request.Timeout)
+		c.inbox.Add(request.URL.String(), request.Depth, request.Timeout)
 	}()
 
 	go func() {
@@ -75,7 +75,7 @@ func (c *Crawler) Crawl(request crawler.CrawlRequest) *crawler.CrawlResult {
 
 				go func() {
 					defer c.wg.Done()
-					c.crawlUrl(ctx, task, resChan, errChan)
+					c.crawlURL(ctx, task, resChan, errChan)
 				}()
 
 				if request.Cooldown != 0 {
@@ -95,15 +95,15 @@ func (c *Crawler) Crawl(request crawler.CrawlRequest) *crawler.CrawlResult {
 	return result
 }
 
-func (c *Crawler) crawlUrl(ctx context.Context, task crawler.Task, resChan chan crawler.ParsedResource, errChan chan error) {
+func (c *Crawler) crawlURL(ctx context.Context, task crawler.Task, resChan chan crawler.ParsedResource, errChan chan error) {
 	urlToCrawl, err := url.ParseRequestURI(task.URL)
 	if err != nil {
-		err = fmt.Errorf("invalid url %v: %v", urlToCrawl.String(), err)
+		err = fmt.Errorf("invalid url %v: %w", urlToCrawl.String(), err)
 		errChan <- err
 		return
 	}
 
-	fetchResult, err := c.fetchUrl(ctx, urlToCrawl, task.Timeout)
+	fetchResult, err := c.fetchURL(ctx, urlToCrawl, task.Timeout)
 	if err != nil {
 		errChan <- err
 
@@ -120,7 +120,7 @@ func (c *Crawler) crawlUrl(ctx context.Context, task crawler.Task, resChan chan 
 		for j := range parsedLinks {
 			urlToCrawl, err := url.ParseRequestURI(parsedLinks[j])
 			if err != nil {
-				err = fmt.Errorf("invalid url %v: %v", parsedLinks[j], err)
+				err = fmt.Errorf("invalid url %v: %w", parsedLinks[j], err)
 				errChan <- err
 				return
 			}
@@ -148,7 +148,7 @@ func (c *Crawler) crawlUrl(ctx context.Context, task crawler.Task, resChan chan 
 	resChan <- parseResult
 }
 
-func (c *Crawler) fetchUrl(ctx context.Context, urlToFetch *url.URL, timeout time.Duration) (crawler.FetchedResource, error) {
+func (c *Crawler) fetchURL(ctx context.Context, urlToFetch *url.URL, timeout time.Duration) (crawler.FetchedResource, error) {
 	urlAsString := urlToFetch.String()
 	var result crawler.FetchedResource
 
@@ -164,7 +164,7 @@ func (c *Crawler) fetchUrl(ctx context.Context, urlToFetch *url.URL, timeout tim
 
 	result, err := c.fetcher.Fetch(ctxWithTimeout, urlToFetch)
 	if err != nil {
-		err = fmt.Errorf("fetching %v: %v", urlAsString, err)
+		err = fmt.Errorf("fetching %v: %w", urlAsString, err)
 
 		return result, err
 	}

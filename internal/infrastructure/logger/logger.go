@@ -4,9 +4,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var (
-	log *zap.Logger
-)
+var log *zap.Logger
 
 func InitLogger(isProduction bool) *zap.Logger {
 	if log != nil {

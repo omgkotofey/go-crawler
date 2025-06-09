@@ -1,21 +1,23 @@
 package cmd
 
 import (
+	"fmt"
+	"net/url"
+	"time"
+
 	"experiments/internal/app"
 	crawler "experiments/internal/domain/crawler"
 	"experiments/internal/infrastructure/fetcher"
 	parser "experiments/internal/infrastructure/parser/html"
 	"experiments/internal/usecase/crawling"
-	"fmt"
-	"net/url"
-	"time"
-
 	"github.com/spf13/cobra"
 )
 
-const depthFlag = "depth"
-const timeoutFlag = "timeout"
-const cooldownFlag = "cooldown"
+const (
+	depthFlag    = "depth"
+	timeoutFlag  = "timeout"
+	cooldownFlag = "cooldown"
+)
 
 func newParseCommand(app *app.App) *cobra.Command {
 	command := &cobra.Command{
@@ -25,8 +27,9 @@ func newParseCommand(app *app.App) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := app.Logger
 
-			parsedUrl, err := url.ParseRequestURI(args[0])
+			parsedURL, err := url.ParseRequestURI(args[0])
 			if err != nil {
+				err = fmt.Errorf("invalid uri: %w", err)
 				logger.Fatal(err.Error())
 
 				return err
@@ -34,30 +37,33 @@ func newParseCommand(app *app.App) *cobra.Command {
 
 			crawlDepth, err := cmd.Flags().GetInt64(depthFlag)
 			if err != nil {
-				err := fmt.Errorf("invalid depth value: %w", err)
+				err = fmt.Errorf("invalid depth value: %w", err)
 				logger.Fatal(err.Error())
+
 				return err
 			}
 
 			timeout, err := cmd.Flags().GetDuration(timeoutFlag)
 			if err != nil {
-				err := fmt.Errorf("invalid duration value: %w", err)
+				err = fmt.Errorf("invalid duration value: %w", err)
 				logger.Fatal(err.Error())
+
 				return err
 			}
 
 			cooldown, err := cmd.Flags().GetDuration(cooldownFlag)
 			if err != nil {
-				err := fmt.Errorf("invalid cooldown value: %w", err)
+				err = fmt.Errorf("invalid cooldown value: %w", err)
 				logger.Fatal(err.Error())
+
 				return err
 			}
 
 			crawlerInstance := crawling.NewCrawler(
 				*app.Config,
-				fetcher.NewHttpFetcher(),
+				fetcher.NewHTTPFetcher(),
 				[]crawler.Parser{
-					parser.NewLinksParser(parsedUrl),
+					parser.NewLinksParser(parsedURL),
 				},
 				logger,
 			)
@@ -65,8 +71,8 @@ func newParseCommand(app *app.App) *cobra.Command {
 			crawlingResult := crawlerInstance.Crawl(
 				crawler.CrawlRequest{
 					Context:  cmd.Context(),
-					Url:      parsedUrl,
-					Depth:    int64(crawlDepth),
+					URL:      parsedURL,
+					Depth:    crawlDepth,
 					Timeout:  timeout,
 					Cooldown: cooldown,
 				},
@@ -78,7 +84,7 @@ func newParseCommand(app *app.App) *cobra.Command {
 				result := summary.GetResults()[i]
 				fmt.Printf(
 					"Parsed %s. Response length: %d (%v ms) \n",
-					result.GetResource().GetUrl(),
+					result.GetResource().GetURL(),
 					len(result.GetResource().GetBody()),
 					result.GetResource().GetResponseTimeMs(),
 				)

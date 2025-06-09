@@ -16,12 +16,12 @@ func (r ParsedResource) GetResource() FetchedResource {
 	return r.resource
 }
 
-func (p *ParsedResource) AddResults(results []ParsedData) {
-	p.parcingResult = append(p.parcingResult, results...)
+func (r *ParsedResource) AddResults(results []ParsedData) {
+	r.parcingResult = append(r.parcingResult, results...)
 }
 
-func (p *ParsedResource) GetResults() []ParsedData {
-	return p.parcingResult
+func (r *ParsedResource) GetResults() []ParsedData {
+	return r.parcingResult
 }
 
 func NewParsedResource(resource FetchedResource, results []ParsedData) ParsedResource {

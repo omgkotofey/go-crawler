@@ -2,11 +2,11 @@ package html
 
 import (
 	"bytes"
-	"experiments/internal/domain/crawler"
 	"fmt"
 	"net/url"
 	"strings"
 
+	"experiments/internal/domain/crawler"
 	"golang.org/x/net/html"
 )
 
@@ -20,13 +20,13 @@ func (o Origin) getBase() string {
 	return fmt.Sprintf("%v://%v", o.Base.Scheme, o.Base.Host)
 }
 
-func (o Origin) getAbsolute(relativeUrl string) string {
-	absoluteUrl, err := o.Base.Parse(relativeUrl)
+func (o Origin) getAbsolute(relativeURL string) string {
+	absoluteURL, err := o.Base.Parse(relativeURL)
 	if err != nil {
 		return ""
 	}
 
-	return absoluteUrl.String()
+	return absoluteURL.String()
 }
 
 type ATag struct {
@@ -81,15 +81,15 @@ func (p LinksParser) GetType() crawler.ParserType {
 
 func (p LinksParser) Parse(resource crawler.FetchedResource) crawler.ParsedData {
 	tokenizer := html.NewTokenizer(bytes.NewReader(resource.GetBody()))
-	result := crawler.NewParsedData(crawler.ParserType(p.GetType()), make([]string, 0), nil)
+	result := crawler.NewParsedData(p.GetType(), make([]string, 0), nil)
 
 	for {
 		token := tokenizer.Next()
-		switch {
-		case token == html.ErrorToken:
+		switch token {
+		case html.ErrorToken:
 			// End of the document, we're done
 			return result
-		case token == html.StartTagToken:
+		case html.StartTagToken:
 			t := tokenizer.Token()
 
 			// Check if the token is an <a> tag
@@ -100,30 +100,30 @@ func (p LinksParser) Parse(resource crawler.FetchedResource) crawler.ParsedData 
 
 			// Extract the href value, if there is one
 			atag := ATag{token: t, origin: p.Origin}
-			rawUrl, ok := atag.getHref()
+			rawURL, ok := atag.getHref()
 			if !ok {
 				continue
 			}
 
 			// Make sure the url begines in http**
-			isHTTP := strings.Index(rawUrl, "http") == 0
+			isHTTP := strings.Index(rawURL, "http") == 0
 			if !isHTTP {
 				continue
 			}
 
 			// check url has same base with origin
-			if !strings.Contains(rawUrl, p.Origin.getBase()) {
+			if !strings.Contains(rawURL, p.Origin.getBase()) {
 				continue
 			}
 
-			parsedUrl, err := url.ParseRequestURI(rawUrl)
+			parsedURL, err := url.ParseRequestURI(rawURL)
 			if err != nil {
 				result.SetError(err)
 
 				return result
 			}
 
-			result.AppendData([]string{parsedUrl.String()})
+			result.AppendData([]string{parsedURL.String()})
 		}
 	}
 }

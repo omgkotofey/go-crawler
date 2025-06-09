@@ -23,7 +23,7 @@ func NewFetchedResource(url *url.URL, body []byte, responseTimeMs int64) Fetched
 	}
 }
 
-func (r FetchedResource) GetUrl() *url.URL {
+func (r FetchedResource) GetURL() *url.URL {
 	return r.url
 }
 

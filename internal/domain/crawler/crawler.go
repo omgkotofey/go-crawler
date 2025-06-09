@@ -8,7 +8,7 @@ import (
 
 type CrawlRequest struct {
 	Context  context.Context
-	Url      *url.URL
+	URL      *url.URL
 	Depth    int64
 	Timeout  time.Duration
 	Cooldown time.Duration

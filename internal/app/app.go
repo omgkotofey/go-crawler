@@ -3,7 +3,6 @@ package app
 import (
 	"experiments/internal/config"
 	"experiments/internal/infrastructure/logger"
-
 	"go.uber.org/zap"
 )
 

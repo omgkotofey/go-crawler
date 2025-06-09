@@ -4,7 +4,7 @@ GOLANGCI_BIN=$(HOME)/go/bin/golangci-lint
 
 lint: install-linter
 	@echo "Running linter..."
-	@$(GOLANGCI_BIN) run --timeout $(LINTER_TIMEOUT)
+	@$(GOLANGCI_BIN) run --timeout $(LINTER_TIMEOUT) --fix
 
 install-linter:
 	@if [ ! -x "$(GOLANGCI_BIN)" ]; then \

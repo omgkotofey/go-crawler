@@ -8,8 +8,10 @@ import (
 	"github.com/sethvargo/go-envconfig"
 )
 
-const production = "production"
-const development = "development"
+const (
+	production  = "production"
+	development = "development"
+)
 
 type AppConfig struct {
 	Env     string `env:"ENV,default=development"`
@@ -40,7 +42,7 @@ func (cfg *Config) IsProduction() bool {
 func Load(ctx context.Context) (*Config, error) {
 	var cfg Config
 	if err := envconfig.Process(ctx, &cfg); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("envconfig process: %w", err)
 	}
 	cfg.Validate()
 
