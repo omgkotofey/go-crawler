@@ -27,7 +27,7 @@ func newParseCommand(app *app.App) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := app.Logger
 
-			parsedURL, err := url.ParseRequestURI(args[0])
+			parsedURL, err := url.Parse(args[0])
 			if err != nil {
 				err = fmt.Errorf("invalid uri: %w", err)
 				logger.Fatal(err.Error())

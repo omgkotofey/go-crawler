@@ -96,7 +96,7 @@ func (c *Crawler) Crawl(request crawler.CrawlRequest) *crawler.CrawlResult {
 }
 
 func (c *Crawler) crawlURL(ctx context.Context, task crawler.Task, resChan chan crawler.ParsedResource, errChan chan error) {
-	urlToCrawl, err := url.ParseRequestURI(task.URL)
+	urlToCrawl, err := url.Parse(task.URL)
 	if err != nil {
 		err = fmt.Errorf("invalid url %v: %w", urlToCrawl.String(), err)
 		errChan <- err
@@ -118,7 +118,7 @@ func (c *Crawler) crawlURL(ctx context.Context, task crawler.Task, resChan chan 
 
 		parsedLinks := parseResult.GetResults()[i].GetData()
 		for j := range parsedLinks {
-			urlToCrawl, err := url.ParseRequestURI(parsedLinks[j])
+			urlToCrawl, err := url.Parse(parsedLinks[j])
 			if err != nil {
 				err = fmt.Errorf("invalid url %v: %w", parsedLinks[j], err)
 				errChan <- err

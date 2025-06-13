@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"experiments/internal/domain/crawler"
+
 	"golang.org/x/net/html"
 )
 
@@ -116,11 +117,16 @@ func (p LinksParser) Parse(resource crawler.FetchedResource) crawler.ParsedData 
 				continue
 			}
 
-			parsedURL, err := url.ParseRequestURI(rawURL)
+			parsedURL, err := url.Parse(rawURL)
 			if err != nil {
 				result.SetError(err)
 
 				return result
+			}
+
+			if len(parsedURL.Fragment) > 0 {
+				parsedURL.Fragment = ""
+				parsedURL.RawFragment = ""
 			}
 
 			result.AppendData([]string{parsedURL.String()})
