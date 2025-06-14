@@ -10,6 +10,7 @@ import (
 	"experiments/internal/infrastructure/fetcher"
 	parser "experiments/internal/infrastructure/parser/html"
 	"experiments/internal/usecase/crawling"
+
 	"github.com/spf13/cobra"
 )
 
@@ -17,6 +18,7 @@ const (
 	depthFlag    = "depth"
 	timeoutFlag  = "timeout"
 	cooldownFlag = "cooldown"
+	limitFlag    = "limit"
 )
 
 func newParseCommand(app *app.App) *cobra.Command {
@@ -59,8 +61,21 @@ func newParseCommand(app *app.App) *cobra.Command {
 				return err
 			}
 
+			limit, err := cmd.Flags().GetInt64(limitFlag)
+			if err != nil {
+				err = fmt.Errorf("invalid limit value: %w", err)
+				logger.Fatal(err.Error())
+
+				return err
+			}
+
+			crawlerConfig := crawling.CrawlerConfig{
+				MaxParallelFetches: int64(app.Config.Crawler.MaxParallelFetches),
+				CrawlingLimit:      limit,
+			}
+
 			crawlerInstance := crawling.NewCrawler(
-				*app.Config,
+				crawlerConfig,
 				fetcher.NewHTTPFetcher(),
 				[]crawler.Parser{
 					parser.NewLinksParser(parsedURL),
@@ -75,6 +90,7 @@ func newParseCommand(app *app.App) *cobra.Command {
 					Depth:    crawlDepth,
 					Timeout:  timeout,
 					Cooldown: cooldown,
+					Limit:    limit,
 				},
 			)
 
@@ -107,11 +123,12 @@ func newParseCommand(app *app.App) *cobra.Command {
 		},
 	}
 
-	var depth int64
+	var depth, limit int64
 	var timeout, cooldown time.Duration
 	command.Flags().Int64Var(&depth, depthFlag, -1, "Max depth to crawling (e.g. -1 - unlimited depth, 0 - only specified resource, N - N levels down)")
 	command.Flags().DurationVar(&timeout, timeoutFlag, app.Config.Crawler.DefaultFetchTimeout, "Request timeout (e.g. 5s, 1m)")
 	command.Flags().DurationVar(&cooldown, cooldownFlag, app.Config.Crawler.DefaultFetchCooldown, "Fetching cooldown (e.g. 300ms, 1s)")
+	command.Flags().Int64Var(&limit, limitFlag, 0, "Limit of resources what crawler will check (e.g. 500)")
 
 	return command
 }

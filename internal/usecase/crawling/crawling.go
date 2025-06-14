@@ -5,42 +5,57 @@ import (
 	"fmt"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"experiments/internal/config"
 	"experiments/internal/domain/crawler"
 	parsers "experiments/internal/infrastructure/parser/html"
+
 	"go.uber.org/zap"
 )
 
+const CRAWLED_RESOURCES_LIMIT_HARD_CAP = 100_000 // quite a large site
+
 type Crawler struct {
-	wg        *sync.WaitGroup
-	limiter   chan struct{}
-	fetcher   crawler.Fetcher
-	parserSet crawler.ParserSet
-	inbox     *crawler.Inbox
-	logger    *zap.Logger
+	wg             *sync.WaitGroup
+	crawlingLimit  int64
+	fetchesLimiter chan struct{}
+	fetcher        crawler.Fetcher
+	parserSet      crawler.ParserSet
+	inbox          *crawler.Inbox
+	logger         *zap.Logger
 }
 
-func NewCrawler(cfg config.Config, fetcher crawler.Fetcher, parsers []crawler.Parser, logger *zap.Logger) Crawler {
+type CrawlerConfig struct {
+	MaxParallelFetches int64
+	CrawlingLimit      int64
+}
+
+func NewCrawler(cfg CrawlerConfig, fetcher crawler.Fetcher, parsers []crawler.Parser, logger *zap.Logger) Crawler {
 	parserSet := crawler.ParserSet{}
 	for i := range parsers {
 		parserSet.AddParser(parsers[i])
 	}
 
-	limit := cfg.Crawler.MaxParallelFetches
-	if limit == 0 {
-		limit = 1
+	concurrecntFetchesLimit := cfg.MaxParallelFetches
+	if concurrecntFetchesLimit == 0 {
+		concurrecntFetchesLimit = 1
 	}
-	limiter := make(chan struct{}, limit)
+	fetchesLimiter := make(chan struct{}, concurrecntFetchesLimit)
+
+	crawledResourcesLimit := cfg.CrawlingLimit
+	if crawledResourcesLimit == 0 {
+		crawledResourcesLimit = CRAWLED_RESOURCES_LIMIT_HARD_CAP
+	}
 
 	return Crawler{
-		wg:        nil,
-		limiter:   limiter,
-		fetcher:   fetcher,
-		parserSet: parserSet,
-		logger:    logger,
-		inbox:     nil,
+		wg:             nil,
+		crawlingLimit:  crawledResourcesLimit,
+		fetchesLimiter: fetchesLimiter,
+		fetcher:        fetcher,
+		parserSet:      parserSet,
+		logger:         logger,
+		inbox:          nil,
 	}
 }
 
@@ -52,6 +67,7 @@ func (c *Crawler) Crawl(request crawler.CrawlRequest) *crawler.CrawlResult {
 	ctx := request.Context
 	result := crawler.NewCrawlResultForRequest(request)
 	resChan, errChan := result.Channels()
+	var proceed int64 = 1
 
 	c.inbox = crawler.NewInbox()
 	c.wg = &sync.WaitGroup{}
@@ -75,6 +91,10 @@ func (c *Crawler) Crawl(request crawler.CrawlRequest) *crawler.CrawlResult {
 
 				go func() {
 					defer c.wg.Done()
+					if c.crawlingLimit < proceed {
+						return // pass crawling even if it was scheduled
+					}
+					atomic.AddInt64(&proceed, 1)
 					c.crawlURL(ctx, task, resChan, errChan)
 				}()
 
@@ -152,9 +172,9 @@ func (c *Crawler) fetchURL(ctx context.Context, urlToFetch *url.URL, timeout tim
 	urlAsString := urlToFetch.String()
 	var result crawler.FetchedResource
 
-	c.limiter <- struct{}{}
+	c.fetchesLimiter <- struct{}{}
 	defer func() {
-		<-c.limiter
+		<-c.fetchesLimiter
 	}()
 
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)

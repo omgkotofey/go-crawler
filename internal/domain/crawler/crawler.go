@@ -12,6 +12,7 @@ type CrawlRequest struct {
 	Depth    int64
 	Timeout  time.Duration
 	Cooldown time.Duration
+	Limit    int64
 }
 
 type CrawlingSummary struct {
